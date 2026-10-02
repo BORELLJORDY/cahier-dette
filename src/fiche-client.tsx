@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Alert,
+  FlatList,
+  Linking,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import {
   ajouterDette,
   ajouterPaiement,
@@ -85,6 +94,35 @@ export default function FicheClient({ db, clientId, onRetour }: Props) {
     await enregistrerMouvement();
   };
 
+  // Prépare un message de rappel et ouvre WhatsApp ou l'application SMS
+  const rappel = async (canal: 'whatsapp' | 'sms') => {
+    setErreur('');
+    const tel = (client?.telephone ?? '').trim();
+    const boutique = params.nomBoutique || 'votre commerçant';
+    const message = `Bonjour ${client?.nom}, un petit rappel de ${boutique} : votre solde est de ${formatMontant(client?.solde)}. Merci de passer régler dès que possible.`;
+
+    let url: string;
+    if (canal === 'whatsapp') {
+      let numero = tel.replace(/[^\d+]/g, '');
+      if (numero.startsWith('00')) numero = '+' + numero.slice(2);
+      if (!numero.startsWith('+')) {
+        setErreur(
+          'Pour WhatsApp, enregistre le numéro au format international (avec + et l\'indicatif du pays) dans « Modifier ».'
+        );
+        return;
+      }
+      url = `https://wa.me/${numero.slice(1)}?text=${encodeURIComponent(message)}`;
+    } else {
+      url = `sms:${tel.replace(/\s/g, '')}?body=${encodeURIComponent(message)}`;
+    }
+
+    try {
+      await Linking.openURL(url);
+    } catch {
+      setErreur("Impossible d'ouvrir l'application. Vérifie qu'elle est installée.");
+    }
+  };
+
   const ouvrirEdition = () => {
     setENom(client?.nom ?? '');
     setETel(client?.telephone ?? '');
@@ -146,7 +184,7 @@ export default function FicheClient({ db, clientId, onRetour }: Props) {
           <TextInput style={styles.input} placeholder="Nom" value={eNom} onChangeText={setENom} />
           <TextInput
             style={styles.input}
-            placeholder="Téléphone"
+            placeholder="Téléphone (format international pour WhatsApp)"
             keyboardType="phone-pad"
             value={eTel}
             onChangeText={setETel}
@@ -209,6 +247,17 @@ export default function FicheClient({ db, clientId, onRetour }: Props) {
         </Text>
       ) : null}
 
+      {client?.solde > 0 && client?.telephone ? (
+        <View style={[styles.boutons, styles.rappels]}>
+          <Pressable style={[styles.bouton, styles.boutonWhatsapp]} onPress={() => rappel('whatsapp')}>
+            <Text style={styles.boutonTexte}>Rappel WhatsApp</Text>
+          </Pressable>
+          <Pressable style={[styles.bouton, styles.boutonGris]} onPress={() => rappel('sms')}>
+            <Text style={styles.boutonTexte}>Rappel SMS</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       <View style={styles.formulaire}>
         <TextInput
           style={styles.input}
@@ -269,9 +318,11 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10 },
   erreur: { color: '#b91c1c' },
   boutons: { flexDirection: 'row', gap: 8 },
+  rappels: { marginTop: 8 },
   bouton: { flex: 1, borderRadius: 8, padding: 12, alignItems: 'center' },
   boutonDette: { backgroundColor: '#b91c1c' },
   boutonPaiement: { backgroundColor: '#15803d' },
+  boutonWhatsapp: { backgroundColor: '#128c7e' },
   boutonGris: { backgroundColor: '#6b7280' },
   boutonTexte: { color: '#fff', fontWeight: '600', textAlign: 'center' },
   ligne: {
