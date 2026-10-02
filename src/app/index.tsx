@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ajouterClient, getClientsAvecSolde, openDb } from '../db';
+import FicheClient from '../fiche-client';
 
 const formatMontant = (n: number) =>
   String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' FCFA';
@@ -11,6 +12,7 @@ export default function ClientsScreen() {
   const [clients, setClients] = useState<any[]>([]);
   const [nom, setNom] = useState('');
   const [telephone, setTelephone] = useState('');
+  const [selection, setSelection] = useState<number | null>(null);
 
   const charger = useCallback(async (d: any) => {
     setClients(await getClientsAvecSolde(d));
@@ -32,7 +34,20 @@ export default function ClientsScreen() {
     await charger(db);
   };
 
+  const retour = async () => {
+    setSelection(null);
+    if (db) await charger(db);
+  };
+
   const totalDu = clients.reduce((somme, c) => somme + c.solde, 0);
+
+  if (db && selection !== null) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <FicheClient db={db} clientId={selection} onRetour={retour} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -63,7 +78,7 @@ export default function ClientsScreen() {
         keyExtractor={(c) => String(c.id)}
         ListEmptyComponent={<Text style={styles.vide}>Aucun client pour l'instant.</Text>}
         renderItem={({ item }) => (
-          <View style={styles.ligne}>
+          <Pressable style={styles.ligne} onPress={() => setSelection(item.id)}>
             <View>
               <Text style={styles.nom}>{item.nom}</Text>
               {item.telephone ? <Text style={styles.tel}>{item.telephone}</Text> : null}
@@ -71,7 +86,7 @@ export default function ClientsScreen() {
             <Text style={[styles.solde, item.solde > 0 && styles.soldeDu]}>
               {formatMontant(item.solde)}
             </Text>
-          </View>
+          </Pressable>
         )}
       />
     </SafeAreaView>

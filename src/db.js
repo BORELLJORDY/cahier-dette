@@ -70,3 +70,24 @@ export function ajouterPaiement(db, clientId, montant) {
     [clientId, montant]
   );
 }
+export function getClient(db, clientId) {
+  return db.getFirstAsync(
+    `SELECT c.id, c.nom, c.telephone,
+      COALESCE((SELECT SUM(montant) FROM dettes    WHERE client_id = c.id), 0)
+    - COALESCE((SELECT SUM(montant) FROM paiements WHERE client_id = c.id), 0) AS solde
+    FROM clients c WHERE c.id = ?`,
+    [clientId]
+  );
+}
+
+export function getHistorique(db, clientId) {
+  return db.getAllAsync(
+    `SELECT 'dette' AS type, id, montant, description, date
+       FROM dettes WHERE client_id = ?
+     UNION ALL
+     SELECT 'paiement' AS type, id, montant, NULL AS description, date
+       FROM paiements WHERE client_id = ?
+     ORDER BY date DESC, id DESC`,
+    [clientId, clientId]
+  );
+}
