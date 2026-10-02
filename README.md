@@ -1,56 +1,42 @@
-# Welcome to your Expo app 👋
+# Cahier de dette
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Application mobile pour les petits commerçants, qui remplace le cahier papier où l'on note les achats à crédit des clients. Le commerçant suit en un coup d'œil qui lui doit combien.
 
-## Get started
+> Projet personnel en cours de développement. Les données montrées dans les captures sont fictives.
 
-1. Install dependencies
+## Fonctionnalités
 
-   ```bash
-   npm install
-   ```
+- Liste des clients avec le solde de chacun et le total dû
+- Fiche client : historique des dettes et des paiements, du plus récent au plus ancien
+- Ajout d'une dette (achat à crédit) et enregistrement d'un paiement, total ou partiel
+- Modification et suppression d'un client, avec confirmation
+- Paramètres du commerçant : nom de la boutique, nom du commerçant, téléphone
+- Fonctionne **sans connexion** : les données sont enregistrées sur le téléphone
 
-2. Start the app
+## Technologies
 
-   ```bash
-   npx expo start
-   ```
+- React Native avec Expo (Expo Router) et TypeScript
+- SQLite via `expo-sqlite` pour le stockage local
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Lancer le projet
 
 ```bash
-npm run reset-project
+git clone https://github.com/BORELLJORDY/cahier-dette.git
+cd cahier-dette
+npm install
+npx expo start
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Scanne ensuite le QR code avec l'application **Expo Go** sur ton téléphone (téléphone et ordinateur sur le même Wi-Fi).
 
-### Other setup steps
+## Choix techniques
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+- Les montants sont stockés en **nombres entiers**, jamais en décimaux, pour éviter les erreurs d'arrondi.
+- Le solde d'un client n'est pas stocké : il est recalculé (dettes moins paiements) à chaque affichage, donc il ne peut jamais être incohérent après une correction.
 
-## Learn more
+## Prochaines étapes
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- Alerte quand une dette dépasse la limite de crédit d'un client
+- Rappels aux clients en retard (message WhatsApp ou SMS)
+- Plans de remboursement par tranches
+- Archivage des clients à la place de la suppression
