@@ -5,6 +5,7 @@ import {
   ajouterPaiement,
   getClient,
   getHistorique,
+  getParametres,
   modifierClient,
   supprimerClient,
 } from './db';
@@ -17,6 +18,7 @@ const formatMontant = (n: number) =>
 export default function FicheClient({ db, clientId, onRetour }: Props) {
   const [client, setClient] = useState<any>(null);
   const [historique, setHistorique] = useState<any[]>([]);
+  const [params, setParams] = useState<Record<string, string>>({});
   const [montant, setMontant] = useState('');
   const [description, setDescription] = useState('');
   const [erreur, setErreur] = useState('');
@@ -31,11 +33,17 @@ export default function FicheClient({ db, clientId, onRetour }: Props) {
   const charger = useCallback(async () => {
     setClient(await getClient(db, clientId));
     setHistorique(await getHistorique(db, clientId));
+    setParams(await getParametres(db));
   }, [db, clientId]);
 
   useEffect(() => {
     charger();
   }, [charger]);
+
+  // Limite du client, sinon limite par défaut du commerçant
+  const limiteDefaut = params.limiteDefaut ? parseInt(params.limiteDefaut, 10) : null;
+  const limite = client?.limite_credit ?? limiteDefaut;
+  const bloquante = params.limiteBloquante === '1';
 
   const valider = async (type: 'dette' | 'paiement') => {
     const texte = montant.replace(/\s/g, '');
@@ -44,19 +52,41 @@ export default function FicheClient({ db, clientId, onRetour }: Props) {
       return;
     }
     const m = parseInt(texte, 10);
-    if (type === 'dette') {
-      await ajouterDette(db, clientId, m, description.trim() || null);
-    } else {
-      await ajouterPaiement(db, clientId, m);
+
+    const enregistrerMouvement = async () => {
+      if (type === 'dette') {
+        await ajouterDette(db, clientId, m, description.trim() || null);
+      } else {
+        await ajouterPaiement(db, clientId, m);
+      }
+      setMontant('');
+      setDescription('');
+      setErreur('');
+      await charger();
+    };
+
+    if (type === 'dette' && limite != null && client?.solde + m > limite) {
+      if (bloquante) {
+        setErreur(
+          `Limite de crédit atteinte : ${client?.nom} ne peut pas dépasser ${formatMontant(limite)}.`
+        );
+        return;
+      }
+      Alert.alert(
+        'Limite de crédit dépassée',
+        `Avec cette dette, ${client?.nom} devrait ${formatMontant(client?.solde + m)}, pour une limite de ${formatMontant(limite)}.`,
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Ajouter quand même', onPress: enregistrerMouvement },
+        ]
+      );
+      return;
     }
-    setMontant('');
-    setDescription('');
-    setErreur('');
-    await charger();
+    await enregistrerMouvement();
   };
 
   const ouvrirEdition = () => {
-    setENom(client?.nom);
+    setENom(client?.nom ?? '');
     setETel(client?.telephone ?? '');
     setELimite(client?.limite_credit != null ? String(client?.limite_credit) : '');
     setENote(client?.note ?? '');
@@ -123,7 +153,11 @@ export default function FicheClient({ db, clientId, onRetour }: Props) {
           />
           <TextInput
             style={styles.input}
-            placeholder="Limite de crédit (optionnelle)"
+            placeholder={
+              limiteDefaut != null
+                ? `Limite de crédit (défaut : ${formatMontant(limiteDefaut)})`
+                : 'Limite de crédit (optionnelle)'
+            }
             keyboardType="numeric"
             value={eLimite}
             onChangeText={setELimite}
@@ -168,8 +202,11 @@ export default function FicheClient({ db, clientId, onRetour }: Props) {
       <Text style={[styles.solde, client?.solde > 0 && styles.soldeDu]}>
         Solde : {formatMontant(client?.solde)}
       </Text>
-      {client?.limite_credit != null ? (
-        <Text style={styles.tel}>Limite de crédit : {formatMontant(client?.limite_credit)}</Text>
+      {limite != null ? (
+        <Text style={styles.tel}>
+          Limite de crédit : {formatMontant(limite)}
+          {client?.limite_credit == null ? ' (par défaut)' : ''}
+        </Text>
       ) : null}
 
       <View style={styles.formulaire}>
