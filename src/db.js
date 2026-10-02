@@ -49,16 +49,25 @@ async function initDb(db) {
     CREATE INDEX IF NOT EXISTS idx_dettes_client    ON dettes(client_id);
     CREATE INDEX IF NOT EXISTS idx_paiements_client ON paiements(client_id);
   `);
+
+  // Migration : ajoute la colonne « archive » aux bases créées avant cette version
+  const colonnes = await db.getAllAsync('PRAGMA table_info(clients)');
+  if (!colonnes.some((c) => c.name === 'archive')) {
+    await db.execAsync('ALTER TABLE clients ADD COLUMN archive INTEGER NOT NULL DEFAULT 0');
+  }
 }
 
-export function getClientsAvecSolde(db) {
-  return db.getAllAsync(`
-    SELECT c.id, c.nom, c.telephone, c.limite_credit,
+// archives = false : clients actifs ; archives = true : clients archivés
+export function getClientsAvecSolde(db, archives = false) {
+  return db.getAllAsync(
+    `SELECT c.id, c.nom, c.telephone, c.limite_credit,
       COALESCE((SELECT SUM(montant) FROM dettes    WHERE client_id = c.id), 0)
     - COALESCE((SELECT SUM(montant) FROM paiements WHERE client_id = c.id), 0) AS solde
     FROM clients c
-    ORDER BY solde DESC, c.nom
-  `);
+    WHERE c.archive = ?
+    ORDER BY solde DESC, c.nom`,
+    [archives ? 1 : 0]
+  );
 }
 
 export function ajouterClient(db, { nom, telephone = null, limiteCredit = null, note = null }) {
@@ -84,7 +93,7 @@ export function ajouterPaiement(db, clientId, montant) {
 
 export function getClient(db, clientId) {
   return db.getFirstAsync(
-    `SELECT c.id, c.nom, c.telephone, c.limite_credit, c.note,
+    `SELECT c.id, c.nom, c.telephone, c.limite_credit, c.note, c.archive,
       COALESCE((SELECT SUM(montant) FROM dettes    WHERE client_id = c.id), 0)
     - COALESCE((SELECT SUM(montant) FROM paiements WHERE client_id = c.id), 0) AS solde
     FROM clients c WHERE c.id = ?`,
@@ -109,6 +118,10 @@ export function modifierClient(db, id, { nom, telephone, limiteCredit, note }) {
     'UPDATE clients SET nom = ?, telephone = ?, limite_credit = ?, note = ? WHERE id = ?',
     [nom, telephone, limiteCredit, note, id]
   );
+}
+
+export function archiverClient(db, id, archive) {
+  return db.runAsync('UPDATE clients SET archive = ? WHERE id = ?', [archive ? 1 : 0, id]);
 }
 
 export function supprimerClient(db, id) {
