@@ -18,6 +18,7 @@ import {
   modifierClient,
   supprimerClient,
 } from './db';
+import PlanRemboursement from './plan-remboursement';
 
 type Props = { db: any; clientId: number; onRetour: () => void };
 
@@ -107,7 +108,7 @@ export default function FicheClient({ db, clientId, onRetour }: Props) {
       if (numero.startsWith('00')) numero = '+' + numero.slice(2);
       if (!numero.startsWith('+')) {
         setErreur(
-          'Pour WhatsApp, enregistre le numéro au format international (avec + et l\'indicatif du pays) dans « Modifier ».'
+          "Pour WhatsApp, enregistre le numéro au format international (avec + et l'indicatif du pays) dans « Modifier »."
         );
         return;
       }
@@ -257,6 +258,8 @@ export default function FicheClient({ db, clientId, onRetour }: Props) {
           </Pressable>
         </View>
       ) : null}
+
+      <PlanRemboursement db={db} clientId={clientId} solde={client?.solde} />
 
       <View style={styles.formulaire}>
         <TextInput

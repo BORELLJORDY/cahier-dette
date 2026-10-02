@@ -9,12 +9,8 @@ export async function openDb() {
 async function initDb(db) {
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
-    PRAGMA foreign_keys = ON; 
+    PRAGMA foreign_keys = ON;
 
-     CREATE TABLE IF NOT EXISTS parametres (
-      cle    TEXT PRIMARY KEY,
-      valeur TEXT
-    );
     CREATE TABLE IF NOT EXISTS clients (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
       nom           TEXT NOT NULL,
@@ -37,6 +33,17 @@ async function initDb(db) {
       client_id INTEGER NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
       montant   INTEGER NOT NULL CHECK (montant > 0),
       date      TEXT NOT NULL DEFAULT (date('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS parametres (
+      cle    TEXT PRIMARY KEY,
+      valeur TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS plans (
+      client_id INTEGER PRIMARY KEY REFERENCES clients(id) ON DELETE CASCADE,
+      montant   INTEGER NOT NULL CHECK (montant > 0),
+      frequence TEXT NOT NULL CHECK (frequence IN ('semaine', 'mois'))
     );
 
     CREATE INDEX IF NOT EXISTS idx_dettes_client    ON dettes(client_id);
@@ -74,6 +81,7 @@ export function ajouterPaiement(db, clientId, montant) {
     [clientId, montant]
   );
 }
+
 export function getClient(db, clientId) {
   return db.getFirstAsync(
     `SELECT c.id, c.nom, c.telephone, c.limite_credit, c.note,
@@ -95,6 +103,7 @@ export function getHistorique(db, clientId) {
     [clientId, clientId]
   );
 }
+
 export function modifierClient(db, id, { nom, telephone, limiteCredit, note }) {
   return db.runAsync(
     'UPDATE clients SET nom = ?, telephone = ?, limite_credit = ?, note = ? WHERE id = ?',
@@ -116,4 +125,23 @@ export function setParametre(db, cle, valeur) {
     'INSERT INTO parametres (cle, valeur) VALUES (?, ?) ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur',
     [cle, valeur]
   );
+}
+
+export function getPlan(db, clientId) {
+  return db.getFirstAsync(
+    'SELECT montant, frequence FROM plans WHERE client_id = ?',
+    [clientId]
+  );
+}
+
+export function setPlan(db, clientId, montant, frequence) {
+  return db.runAsync(
+    `INSERT INTO plans (client_id, montant, frequence) VALUES (?, ?, ?)
+     ON CONFLICT(client_id) DO UPDATE SET montant = excluded.montant, frequence = excluded.frequence`,
+    [clientId, montant, frequence]
+  );
+}
+
+export function supprimerPlan(db, clientId) {
+  return db.runAsync('DELETE FROM plans WHERE client_id = ?', [clientId]);
 }
