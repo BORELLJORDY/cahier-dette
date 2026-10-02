@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ajouterClient, getClientsAvecSolde, openDb } from '../db';
+import { ajouterClient, getClientsAvecSolde, getParametres, openDb } from '../db';
 import FicheClient from '../fiche-client';
+import Parametres from '../parametres';
 
 const formatMontant = (n: number) =>
   String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' FCFA';
@@ -10,12 +11,15 @@ const formatMontant = (n: number) =>
 export default function ClientsScreen() {
   const [db, setDb] = useState<any>(null);
   const [clients, setClients] = useState<any[]>([]);
+  const [params, setParams] = useState<Record<string, string>>({});
   const [nom, setNom] = useState('');
   const [telephone, setTelephone] = useState('');
   const [selection, setSelection] = useState<number | null>(null);
+  const [vue, setVue] = useState<'liste' | 'parametres'>('liste');
 
   const charger = useCallback(async (d: any) => {
     setClients(await getClientsAvecSolde(d));
+    setParams(await getParametres(d));
   }, []);
 
   useEffect(() => {
@@ -36,6 +40,7 @@ export default function ClientsScreen() {
 
   const retour = async () => {
     setSelection(null);
+    setVue('liste');
     if (db) await charger(db);
   };
 
@@ -49,9 +54,22 @@ export default function ClientsScreen() {
     );
   }
 
+  if (db && vue === 'parametres') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Parametres db={db} onRetour={retour} />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.titre}>Cahier de dette</Text>
+      <View style={styles.entete}>
+        <Text style={styles.titre}>{params.nomBoutique || 'Cahier de dette'}</Text>
+        <Pressable onPress={() => setVue('parametres')}>
+          <Text style={styles.lien}>Paramètres</Text>
+        </Pressable>
+      </View>
       <Text style={styles.total}>Total dû : {formatMontant(totalDu)}</Text>
 
       <View style={styles.formulaire}>
@@ -95,7 +113,9 @@ export default function ClientsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, backgroundColor: '#fff' },
-  titre: { fontSize: 24, fontWeight: '700' },
+  entete: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  titre: { fontSize: 24, fontWeight: '700', flexShrink: 1 },
+  lien: { color: '#1d4ed8', fontSize: 16 },
   total: { fontSize: 16, marginTop: 4, marginBottom: 12, color: '#444' },
   formulaire: { gap: 8, marginBottom: 16 },
   input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10 },

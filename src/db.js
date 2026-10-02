@@ -9,8 +9,12 @@ export async function openDb() {
 async function initDb(db) {
   await db.execAsync(`
     PRAGMA journal_mode = WAL;
-    PRAGMA foreign_keys = ON;
+    PRAGMA foreign_keys = ON; 
 
+     CREATE TABLE IF NOT EXISTS parametres (
+      cle    TEXT PRIMARY KEY,
+      valeur TEXT
+    );
     CREATE TABLE IF NOT EXISTS clients (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
       nom           TEXT NOT NULL,
@@ -72,7 +76,7 @@ export function ajouterPaiement(db, clientId, montant) {
 }
 export function getClient(db, clientId) {
   return db.getFirstAsync(
-    `SELECT c.id, c.nom, c.telephone,
+    `SELECT c.id, c.nom, c.telephone, c.limite_credit, c.note,
       COALESCE((SELECT SUM(montant) FROM dettes    WHERE client_id = c.id), 0)
     - COALESCE((SELECT SUM(montant) FROM paiements WHERE client_id = c.id), 0) AS solde
     FROM clients c WHERE c.id = ?`,
@@ -89,5 +93,27 @@ export function getHistorique(db, clientId) {
        FROM paiements WHERE client_id = ?
      ORDER BY date DESC, id DESC`,
     [clientId, clientId]
+  );
+}
+export function modifierClient(db, id, { nom, telephone, limiteCredit, note }) {
+  return db.runAsync(
+    'UPDATE clients SET nom = ?, telephone = ?, limite_credit = ?, note = ? WHERE id = ?',
+    [nom, telephone, limiteCredit, note, id]
+  );
+}
+
+export function supprimerClient(db, id) {
+  return db.runAsync('DELETE FROM clients WHERE id = ?', [id]);
+}
+
+export async function getParametres(db) {
+  const lignes = await db.getAllAsync('SELECT cle, valeur FROM parametres');
+  return Object.fromEntries(lignes.map((l) => [l.cle, l.valeur]));
+}
+
+export function setParametre(db, cle, valeur) {
+  return db.runAsync(
+    'INSERT INTO parametres (cle, valeur) VALUES (?, ?) ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur',
+    [cle, valeur]
   );
 }
